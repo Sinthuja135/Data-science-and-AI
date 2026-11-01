@@ -10,4 +10,7 @@ python -m venv .venv
 source .venv/bin/activate  # Windows PowerShell: .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 # put the benchmark data under data/raw
+
+# run below commands
+python scripts/01_eda.py 
 ```
