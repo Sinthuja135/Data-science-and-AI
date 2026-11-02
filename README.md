@@ -13,4 +13,5 @@ pip install -r requirements.txt
 
 # run below commands
 python scripts/01_eda.py 
+python scripts/02_run_models.py 
 ```
