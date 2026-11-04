@@ -1,8 +1,8 @@
 """Step 3: summarise model results, paired statistical tests and comparison figures.
 
-Reads results/pair_results.csv (step 2) and, if present, results/improvement_results.csv (step 2b). Only the
+Reads results/pair_results.csv (step 2) and, if present, results/improvement_results.csv (step 2). Only the
 models actually present in those files are summarised/tested, so this also works on a partial pipeline
-(e.g. baselines + 2b improvements, before the boosting variants are added).
+(e.g. baselines + improvements, before the boosting variants are added).
 Run from the project root:  python scripts/03_summarise.py
 """
 import sys
