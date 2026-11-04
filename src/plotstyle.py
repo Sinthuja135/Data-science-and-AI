@@ -5,7 +5,7 @@ import matplotlib as mpl
 
 # The project's fixed colour palette -- named constants so every figure-drawing script references e.g.
 # S.TEAL instead of retyping the hex code, and the palette can be changed in one place.
-NAVY, TEAL, AMBER, INK = "#1F3864", "#0F7C7C", "#F2A900", "#22303F"
+NAVY, TEAL, AMBER, GREY, INK = "#1F3864", "#0F7C7C", "#F2A900", "#9AA5B1", "#22303F"
 
 def apply():
     """Set matplotlib's global style for the rest of the process. Call this once near the top of a script,

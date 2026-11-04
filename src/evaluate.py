@@ -1,5 +1,6 @@
 """Metrics, threshold selection and simple statistics."""
 from .common import np
+from scipy.stats import wilcoxon
 from sklearn.base import clone
 from sklearn.metrics import average_precision_score, f1_score, matthews_corrcoef, roc_auc_score
 from sklearn.model_selection import StratifiedKFold, cross_val_predict
@@ -45,3 +46,18 @@ def cliffs_delta(a, b):
     gt = (a[:, None] > b[None, :]).sum()
     lt = (a[:, None] < b[None, :]).sum()
     return (gt - lt) / (len(a) * len(b))
+
+
+def paired_test(a, b, n_boot=5000, seed=C.SEED):
+    """Compare two models' scores over the same release pairs (a[i], b[i] from pair i): Wilcoxon signed-rank
+    p-value, Cliff's delta effect size, and a bootstrap 95% CI on the mean difference."""
+    a, b = np.asarray(a), np.asarray(b)
+    d = a - b   # per-pair difference
+    try:
+        p = wilcoxon(a, b).pvalue
+    except ValueError:
+        p = np.nan   # every difference is exactly zero -- nothing to rank
+    rng = np.random.default_rng(seed)
+    boots = [rng.choice(d, len(d)).mean() for _ in range(n_boot)]
+    return dict(mean_diff=d.mean(), ci_low=np.percentile(boots, 2.5), ci_high=np.percentile(boots, 97.5),
+                wilcoxon_p=p, cliffs_delta=cliffs_delta(a, b), wins=int((d > 0).sum()), n=len(d))
