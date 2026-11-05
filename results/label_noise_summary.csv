@@ -1,0 +1,5 @@
+model,train_label,auc,pr_auc,mcc_opt,f1_opt
+RF,HeuBug,0.804,0.367,0.301,0.336
+RF,RealBug,0.819,0.386,0.343,0.397
+XGB_weighted,HeuBug,0.776,0.346,0.267,0.314
+XGB_weighted,RealBug,0.798,0.373,0.322,0.376
