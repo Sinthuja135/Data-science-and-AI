@@ -18,4 +18,5 @@ python scripts/02b_model_improvements.py
 python scripts/03_summarise.py
 python scripts/04_shap_preview.py
 python scripts/05_label_noise_preview.py
+python scripts/07_train_final_models.py
 ```

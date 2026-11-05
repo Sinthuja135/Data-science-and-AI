@@ -2,3 +2,4 @@
 data/raw/
 Large-Defect-Prediction-Benchmark-v1.0.zip
 src/__pycache__/
+models/*.joblib

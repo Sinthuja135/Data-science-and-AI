@@ -13,6 +13,7 @@ JIRA_DIR = DATA_DIR / "JIRA-defect-dataset"  # 32 release CSVs -- the primary da
 # Where outputs get written. Created on demand by whichever script needs them
 RESULTS = ROOT / "results"   # every CSV table used in the reports
 FIGS = ROOT / "figures"      # every PNG figure used in the reports
+MODELS = ROOT / "models"     # trained model artifacts (models/<project>.joblib), one per project
 
 # reproducibility
 SEED = 42   # fixed everywhere a random number is needed
