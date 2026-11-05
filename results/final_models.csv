@@ -1,0 +1,10 @@
+project,train_release,new_release,n_train,n_defective,threshold,model
+activemq,5.3.0,5.8.0,2367,258,0.32,RF
+camel,2.10.0,2.11.0,7914,230,0.34,RF
+derby,10.3.1.4,10.5.1.1,2206,669,0.38,RF
+groovy,1_6_BETA_1,1_6_BETA_2,821,70,0.32,RF
+hbase,0.95.0,0.95.2,1669,383,0.43,RF
+hive,0.10.0,0.12.0,1560,176,0.32,RF
+jruby,1.5.0,1.7.0.preview1,1131,82,0.25,RF
+lucene,3.0.0,3.1,1337,155,0.24,RF
+wicket,1.3.0-beta2,1.5.3,1763,130,0.25,RF

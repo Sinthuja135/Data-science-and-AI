@@ -1,7 +1,7 @@
 """Train and save the final model of every project (random forest, the best model in the comparison).
 
 Protocol (same as the validated experiments): train on the second-to-last release, keep the LAST release as the
-'new release' to be scored in step 8. The decision threshold comes from out-of-fold training predictions.
+'new release' to be scored in next step. The decision threshold comes from out-of-fold training predictions.
 Writes models/<project>.joblib (one per project) and results/final_models.csv.
 """
 import sys, warnings
