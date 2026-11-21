@@ -1,0 +1,7 @@
+method,recall_20pct_files,recall_20pct_loc
+RF,0.609,0.472
+XGB_weighted,0.578,0.448
+LR,0.587,0.428
+LOC_LR,0.537,0.333
+Smallest files first,0.038,0.333
+Largest files first,0.537,0.095

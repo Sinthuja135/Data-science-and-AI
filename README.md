@@ -20,6 +20,7 @@ python scripts/04_shap_preview.py
 python scripts/05_label_noise_preview.py
 python scripts/07_train_final_models.py
 python scripts/08_score_release.py --project camel  # held-out latest release, top 10
-dpython scripts/08_score_release.py --project hbase --top 20
+python scripts/08_score_release.py --project hbase --top 20
+python scripts/09_effort_aware_eval.py 
 
 ```
