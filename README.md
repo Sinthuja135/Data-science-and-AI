@@ -23,5 +23,6 @@ python scripts/08_score_release.py --project camel  # held-out latest release, t
 python scripts/08_score_release.py --project hbase --top 20
 python scripts/09_effort_aware_eval.py 
 python scripts/10_external_validation.py 
+python scripts/11_label_noise_study.py
 
 ```

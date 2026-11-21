@@ -1,0 +1,5 @@
+train_label,test_label,auc,pr_auc,mcc_opt
+HeuBug,HeuBug,0.827,0.449,0.405
+HeuBug,RealBug,0.804,0.367,0.301
+RealBug,HeuBug,0.777,0.317,0.271
+RealBug,RealBug,0.819,0.386,0.343

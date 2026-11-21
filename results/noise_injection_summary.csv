@@ -1,0 +1,12 @@
+kind,fn,fp,auc,pr_auc,mcc_opt
+both (heuristic-like),0.71,0.035,0.695,0.198,0.141
+missed defects (FN),0.0,0.0,0.819,0.386,0.343
+missed defects (FN),0.2,0.0,0.81,0.364,0.322
+missed defects (FN),0.4,0.0,0.803,0.346,0.308
+missed defects (FN),0.6,0.0,0.784,0.306,0.267
+missed defects (FN),0.71,0.0,0.769,0.292,0.235
+spurious defects (FP),0.0,0.0,0.819,0.386,0.343
+spurious defects (FP),0.0,0.01,0.809,0.375,0.32
+spurious defects (FP),0.0,0.02,0.804,0.368,0.314
+spurious defects (FP),0.0,0.04,0.793,0.351,0.295
+spurious defects (FP),0.0,0.08,0.774,0.33,0.271

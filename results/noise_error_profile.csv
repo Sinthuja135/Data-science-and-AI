@@ -1,0 +1,9 @@
+,agree_bug,agree_clean,heuristic_FN,heuristic_FP,n
+CountLineCode,240.0,39.0,129.0,90.0,
+SumCyclomatic,43.0,6.0,21.0,15.0,
+COMM,4.0,0.0,2.0,2.0,
+ADEV,4.0,0.0,2.0,2.0,
+DDEV,2.0,0.0,1.0,1.0,
+Added_lines,64.0,0.0,21.0,19.0,
+Del_lines,14.0,0.0,5.0,2.0,
+n_files,2080.0,62814.0,5100.0,3401.0,
