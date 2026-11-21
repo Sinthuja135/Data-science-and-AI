@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]  # the project's top-level folder
 DATA_DIR = Path(os.environ.get("DATA_DIR", ROOT / "data" / "raw"))
 JIRA_DIR = DATA_DIR / "JIRA-defect-dataset"  # 32 release CSVs -- the primary dataset
+TP_DIR = DATA_DIR / "TeraPromise-defect-dataset" / "ck"  # CK-metric CSVs -- external validation only
 
 # Where outputs get written. Created on demand by whichever script needs them
 RESULTS = ROOT / "results"   # every CSV table used in the reports

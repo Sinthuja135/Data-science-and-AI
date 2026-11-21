@@ -22,5 +22,6 @@ python scripts/07_train_final_models.py
 python scripts/08_score_release.py --project camel  # held-out latest release, top 10
 python scripts/08_score_release.py --project hbase --top 20
 python scripts/09_effort_aware_eval.py 
+python scripts/10_external_validation.py 
 
 ```
