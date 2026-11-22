@@ -1,0 +1,3 @@
+setting,auc,pr_auc,mcc_opt,f1_opt
+cross-project (pooled),0.814,0.396,0.331,0.38
+within-project,0.819,0.386,0.343,0.397
