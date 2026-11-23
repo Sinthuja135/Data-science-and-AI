@@ -1,0 +1,7 @@
+feature_set,n_metrics,auc,pr_auc,mcc_opt,f1_opt
+all metrics,65,0.819,0.386,0.343,0.397
+code only,54,0.802,0.361,0.325,0.385
+process only,5,0.674,0.264,0.21,0.275
+ownership only,6,0.688,0.261,0.215,0.295
+code + process,59,0.815,0.38,0.33,0.387
+COMM only,1,0.736,0.299,0.285,0.328

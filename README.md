@@ -31,5 +31,6 @@ python scripts/10_external_validation.py
 python scripts/11_label_noise_study.py
 python scripts/12_shap_stability.py
 python scripts/13_cross_project.py
+python scripts/14_feature_ablation.py
 
 ```
