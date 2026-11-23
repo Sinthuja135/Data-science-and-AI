@@ -1,6 +1,11 @@
 # Data-science-and-AI
 Explainable Cross Release Software Defect Prediction on the JIRA Defect Dataset
 
+Predict which source files will contain a post-release defect, using train-on-past / test-on-future splits over
+32 releases of 9 Apache projects (JIRA defect dataset, Yatish et al., ICSE 2019). The project compares baselines
+with gradient boosting and imbalance handling, studies how label noise (`HeuBug` vs `RealBug`) changes results,
+explains models with SHAP, and validates on TeraPromise in both directions.
+
 ## Quick start
 
 https://zenodo.org/api/records/6342328 
