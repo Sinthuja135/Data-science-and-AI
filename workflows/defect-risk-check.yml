@@ -1,0 +1,59 @@
+name: Defect risk check
+
+# Score changed .java files in a PR and post the result as a comment (see scripts/ci_check.py).
+on:
+  pull_request:
+    paths:
+      - "**/*.java"
+
+permissions:
+  contents: read
+  pull-requests: write   # post PR comment
+
+jobs:
+  score-changed-files:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history for git diff
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # no training in CI (no raw data): model must be committed
+      - name: Check a saved model is available
+        run: |
+          test -f models/camel.joblib || (echo "models/camel.joblib not found -- commit a trained model first (see scripts/ci_check.py)" && exit 1)
+
+      # fails the job if a file is flagged; later steps still run (if: always())
+      - name: Run defect risk check
+        id: risk_check
+        run: |
+          python scripts/ci_check.py \
+            --project camel \
+            --repo . \
+            --base ${{ github.event.pull_request.base.sha }} \
+            --head ${{ github.event.pull_request.head.sha }}
+
+      - name: Upload risk report as a build artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: defect-risk-report
+          path: |
+            results/ci_risk_report.md
+            results/ci_risk_report.csv
+
+      - name: Post PR comment
+        if: always()
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          path: results/ci_risk_report.md
