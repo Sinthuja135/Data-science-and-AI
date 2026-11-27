@@ -1,6 +1,8 @@
 name: Defect risk check
 
-# Score changed .java files in a PR and post the result as a comment (see scripts/ci_check.py).
+# Runs on every pull request that touches a .java file: scores each changed file with the saved model and
+# posts the result as a PR comment, AND writes it directly into the Action run's own summary page (visible
+# immediately in the GitHub UI, no artifact download needed). See scripts/ci_check.py for the scoring logic.
 on:
   pull_request:
     paths:
@@ -8,7 +10,7 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write   # post PR comment
+  pull-requests: write   # needed to post/update the PR comment
 
 jobs:
   score-changed-files:
@@ -17,7 +19,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # full history for git diff
+          fetch-depth: 0   # full history needed so `git diff` against the PR's base commit works
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -28,12 +30,17 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      # no training in CI (no raw data): model must be committed
+      # No training step here on purpose: CI doesn't have the raw benchmark data (data/raw is gitignored),
+      # so this workflow loads an already-trained model instead of retraining one. That means the model
+      # file for whichever --project you use below (e.g. models/camel.joblib) must already be committed to
+      # the repo -- see the note in scripts/ci_check.py's own docstring.
       - name: Check a saved model is available
         run: |
           test -f models/camel.joblib || (echo "models/camel.joblib not found -- commit a trained model first (see scripts/ci_check.py)" && exit 1)
 
-      # fails the job if a file is flagged; later steps still run (if: always())
+      # --fail-on flagged (the default) means this step itself exits 1 when a changed file is risky, which
+      # marks the job as failed -- but every step below still runs either way (`if: always()`), so the
+      # summary, artifact and PR comment all post regardless of whether the build ends up failing.
       - name: Run defect risk check
         id: risk_check
         run: |
@@ -42,6 +49,14 @@ jobs:
             --repo . \
             --base ${{ github.event.pull_request.base.sha }} \
             --head ${{ github.event.pull_request.head.sha }}
+
+      - name: Show report in the run summary (GitHub UI, no download needed)
+        if: always()
+        run: cat results/ci_risk_report.md >> "$GITHUB_STEP_SUMMARY"
+        # $GITHUB_STEP_SUMMARY is a special file GitHub Actions provides -- anything written to it renders
+        # as formatted Markdown directly on this run's own page (the one you land on after clicking into it
+        # from the Actions tab or the PR's "Checks" tab). That page persists forever, so browsing the
+        # Actions tab IS your history of every past check -- nothing extra needed for that part.
 
       - name: Upload risk report as a build artifact
         if: always()
