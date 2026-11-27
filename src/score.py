@@ -22,12 +22,17 @@ from .evaluate import oof_threshold
 # ============================================================================= TRAINING
 def train_final(train_df, feats, label=C.LABEL_REAL, seed=C.SEED, name="RF", **meta):
     """Fit model `name` and pick its threshold from OOF predictions. Returns a picklable dict;
-    extra **meta (e.g. project, releases) is stored as-is."""
+    extra **meta (e.g. project, releases) is stored as-is.
+
+    Also stores `medians`: the per-feature median of `train_df`, so score_new_file() can impute
+    missing metrics for a lone new file straight from the saved model, without re-reading the raw
+    JIRA CSVs at scoring time -- that matters anywhere the raw data isn't present, e.g. a CI runner."""
     X, y = train_df[feats], train_df[label].values
     model = build(name, seed).fit(X, y)
     thr = oof_threshold(model, X, y, seed)   # MCC-optimal cutoff
+    medians = {f: float(v) for f, v in train_df[feats].median(numeric_only=True).items()}
     return dict(model=model, threshold=float(thr), features=list(feats), model_name=name, seed=seed,
-                n_train=int(len(train_df)), n_pos=int(y.sum()), **meta)
+                n_train=int(len(train_df)), n_pos=int(y.sum()), medians=medians, **meta)
 
 
 def save_model(art, path):
@@ -280,13 +285,18 @@ def score_new_file(project, java_path, top=1, model_path=None, explain=True, pla
     """Score one new .java file (no CSV/repo). Missing metrics are imputed from the training
     release medians. quiet=True suppresses printing. Returns the one-row result."""
     from .javafile import build_release_row
-    from .data import load_jira
     art = joblib.load(model_path or (C.MODELS / f"{project}.joblib"))
     train_rel = art.get("train_release")
-    ref = load_jira(); ref = ref[ref.project == project]
-    if train_rel is not None:
-        ref = ref[ref.release == train_rel]   # medians from the training release only
-    medians = ref[art["features"]].median(numeric_only=True).to_dict()
+    medians = art.get("medians")
+    if medians is None:
+        # Older model file saved before `train_final` started storing medians -- fall back to
+        # recomputing them from the raw CSVs, same as before. Needs data/raw to exist, so this
+        # path won't work in CI; retrain with scripts/07_train_final_models.py to pick up the fix.
+        from .data import load_jira
+        ref = load_jira(); ref = ref[ref.project == project]
+        if train_rel is not None:
+            ref = ref[ref.release == train_rel]
+        medians = ref[art["features"]].median(numeric_only=True).to_dict()
 
     row, computed_keys, assumed_keys, imputed_keys = build_release_row(java_path, art["features"], medians)
     row["File"] = str(java_path)
