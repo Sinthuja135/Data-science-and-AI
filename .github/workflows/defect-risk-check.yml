@@ -1,8 +1,8 @@
 name: Defect risk check
 
 # Runs on every pull request that touches a .java file: scores each changed file with the saved model and
-# posts the result as a PR comment, AND writes it directly into the Action run's own summary page (visible
-# immediately in the GitHub UI, no artifact download needed). See scripts/ci_check.py for the scoring logic.
+# shows the result directly in this run's own Summary page (click the run from the Actions tab -- you land
+# straight on the Summary page; don't click into the job name, that's the step-by-step log view instead).
 on:
   pull_request:
     paths:
@@ -30,45 +30,28 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      # No training step here on purpose: CI doesn't have the raw benchmark data (data/raw is gitignored),
-      # so this workflow loads an already-trained model instead of retraining one. That means the model
-      # file for whichever --project you use below (e.g. models/camel.joblib) must already be committed to
-      # the repo -- see the note in scripts/ci_check.py's own docstring.
-      - name: Check a saved model is available
-        run: |
-          test -f models/camel.joblib || (echo "models/camel.joblib not found -- commit a trained model first (see scripts/ci_check.py)" && exit 1)
-
-      # --fail-on flagged (the default) means this step itself exits 1 when a changed file is risky, which
-      # marks the job as failed -- but every step below still runs either way (`if: always()`), so the
-      # summary, artifact and PR comment all post regardless of whether the build ends up failing.
-      - name: Run defect risk check
+      # Combined into one step on purpose, to keep the job log short: checks the model is present, runs the
+      # scoring, then writes the report straight into $GITHUB_STEP_SUMMARY -- a special file GitHub Actions
+      # renders as formatted Markdown on the run's own Summary page. That's where to look for the result.
+      - name: Score changed files and write summary
         id: risk_check
         run: |
-          python scripts/ci_check.py \
-            --project camel \
-            --repo . \
-            --base ${{ github.event.pull_request.base.sha }} \
-            --head ${{ github.event.pull_request.head.sha }}
+          test -f models/camel.joblib || (echo "models/camel.joblib not found -- commit a trained model first (see scripts/ci_check.py)" && exit 1)
+          python scripts/ci_check.py --project camel --repo . \
+            --base ${{ github.event.pull_request.base.sha }} --head ${{ github.event.pull_request.head.sha }}
+        continue-on-error: true   # let the summary/comment steps below still run even if files were flagged
+                                   # (steps.risk_check.outcome below still sees the real pass/fail result)
 
-      - name: Show report in the run summary (GitHub UI, no download needed)
+      - name: Show report in run summary
         if: always()
         run: cat results/ci_risk_report.md >> "$GITHUB_STEP_SUMMARY"
-        # $GITHUB_STEP_SUMMARY is a special file GitHub Actions provides -- anything written to it renders
-        # as formatted Markdown directly on this run's own page (the one you land on after clicking into it
-        # from the Actions tab or the PR's "Checks" tab). That page persists forever, so browsing the
-        # Actions tab IS your history of every past check -- nothing extra needed for that part.
-
-      - name: Upload risk report as a build artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: defect-risk-report
-          path: |
-            results/ci_risk_report.md
-            results/ci_risk_report.csv
 
       - name: Post PR comment
         if: always()
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           path: results/ci_risk_report.md
+
+      - name: Fail the job if anything was flagged
+        if: steps.risk_check.outcome == 'failure'
+        run: exit 1
