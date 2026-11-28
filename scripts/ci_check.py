@@ -1,11 +1,56 @@
-"""CI check: score changed .java files in a PR with saved models; fail if any is flagged.
+"""CI check: score every changed .java file in a pull request against a saved model, and fail the build if
+any of them looks risky. This is a CI utility, not one of the numbered milestone experiments -- run it from
+a pull-request / pre-merge job, not as part of run_all.py.
 
-Each file's project comes from --project-map (default: ci_project_map.json in repo root),
-a JSON of {path-or-glob: project}, first match wins; unmatched files use --project.
-Writes a Markdown + CSV report. Exit codes: 0 ok, 1 file flagged, 2 setup error.
-Needs models/<project>.joblib committed for each project used (CI has no raw data to train).
+What it does
+    1. Finds every .java file changed between --base and --head (default: origin/main..HEAD) in --repo.
+    2. Works out which project's model each changed file should be scored against (see "Multiple projects
+       in one PR" below) -- most repos only ever use one project, which is still the default.
+    3. Scores each file with score_new_file() -- the same best-effort single-file analysis behind
+       `08_score_release.py --new-file` (see src/javafile.py for exactly what's computed vs assumed vs
+       imputed for a lone file with no whole-codebase or git-history context).
+    4. Writes a Markdown table (for pasting into a PR comment) and a CSV to --report.
+    5. Exits 1 (fails the CI job) if any changed file is flagged by its model's own decision threshold, or
+       exits 0 otherwise. Use --fail-on never if you only want the report, not a build failure.
 
+Multiple projects in one PR
+    A single run of this script used to force every changed file to be scored against the same
+    --project. That's wrong for a PR that touches files belonging to different projects (different
+    modules of a monorepo, or -- in this capstone's case -- a demo PR that deliberately mixes a
+    camel-shaped example with a derby-shaped one). Instead:
+      - --project-map points at a JSON file mapping a file path (relative to --repo) or a glob pattern
+        to a project name, e.g.:
+            {
+              "examples/ExtremeRisk.java": "derby",
+              "examples/*.java": "camel"
+            }
+        Patterns are checked in file order, first match wins, so put more specific entries first.
+      - A changed file that matches nothing in the map falls back to --project (still "camel" by
+        default, so a repo that only ever uses one project doesn't need a map file at all).
+      - If --project-map is omitted, the script looks for ci_project_map.json in the repo root and uses
+        it automatically if present; otherwise every file just uses --project, exactly as before.
+      - The report gets a "Project" column so it's clear which model scored which file.
+
+Example (local, single project, no map needed)
     python scripts/ci_check.py --project camel --repo . --base origin/main
+
+Example (local, mixed projects via map file)
+    python scripts/ci_check.py --repo . --base origin/main --project-map ci_project_map.json --project camel
+
+Example (GitHub Actions step) -- see .github/workflows/defect-risk-check.yml for the full workflow:
+    - run: |
+        pip install -r requirements.txt
+        python scripts/ci_check.py --repo . \
+            --base ${{ github.event.pull_request.base.sha }} --head ${{ github.event.pull_request.head.sha }}
+
+Note: only .java files are handled (the single-file analyzer parses Java). Non-Java changed files are
+listed as skipped in the report, not silently ignored.
+
+Note on models: this script loads an already-trained models/<project>.joblib -- it never trains one itself,
+since CI doesn't have the raw benchmark data (data/raw is gitignored and not fetched automatically). Commit
+the model file(s) you want CI to use (override the models/*.joblib line in .gitignore for those specific
+projects), or have an earlier CI step restore it from a cache/artifact, before this script runs. With
+multiple projects in play, commit a model file for each project named in the map (or in --project).
 """
 import sys
 import json
@@ -23,24 +68,29 @@ from src.score import score_new_file
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--project", default="camel", choices=list(C.RELEASE_ORDER),
-                 help="fallback model for files not in --project-map")
-ap.add_argument("--repo", required=True, help="git checkout to check (often '.')")
-ap.add_argument("--base", default="origin/main", help="diff base (PR target)")
-ap.add_argument("--head", default="HEAD", help="diff head (PR branch)")
+                 help="fallback/default model for any changed file --project-map doesn't cover "
+                      "(or the only model used, if you're not scoring multiple projects in this PR)")
+ap.add_argument("--repo", required=True, help="path to the git checkout being checked (often '.')")
+ap.add_argument("--base", default="origin/main", help="diff base -- the branch/commit this PR is merging into")
+ap.add_argument("--head", default="HEAD", help="diff head -- the PR's own branch/commit")
 ap.add_argument("--model-path", default=None,
-                 help="one model for every file (default: models/<project>.joblib per file)")
+                 help="override path to a single .joblib model, used for every file (default: look up "
+                      "models/<project>.joblib per file instead -- don't combine this with --project-map)")
 ap.add_argument("--project-map", default=None,
-                 help="JSON {path-or-glob: project} (default: <repo>/ci_project_map.json if present)")
-ap.add_argument("--report", default=str(C.RESULTS / "ci_risk_report.md"), help="Markdown report path")
+                 help="JSON file mapping a changed file's path or glob pattern to a project name (see "
+                      "module docstring). Default: ci_project_map.json in the repo root, if it exists.")
+ap.add_argument("--report", default=str(C.RESULTS / "ci_risk_report.md"), help="where to write the Markdown report")
 ap.add_argument("--fail-on", choices=["flagged", "never"], default="flagged",
-                 help="'flagged': exit 1 if any file is flagged; 'never': report only")
+                 help="'flagged' (default): exit 1 if any changed file crosses its model's decision threshold. "
+                      "'never': always exit 0, just write the report.")
 args = ap.parse_args()
 
 repo = Path(args.repo).resolve()
 
 
 def load_project_map():
-    """Ordered (pattern, project) pairs from the map file; [] if none."""
+    """Returns an ordered list of (pattern, project) pairs from --project-map, or the repo-root
+    ci_project_map.json if --project-map wasn't given and that file exists. Empty list if neither."""
     map_path = Path(args.project_map) if args.project_map else (repo / "ci_project_map.json")
     if not map_path.exists():
         if args.project_map:
@@ -57,8 +107,9 @@ def load_project_map():
 
 
 def resolve_project(rel_path, project_map):
-    """First matching map pattern's project, else --project."""
-    rel_str = rel_path.replace("\\", "/")
+    """Which project's model should score this file: first matching pattern in project_map (exact path
+    or glob, checked in file order), else the --project fallback."""
+    rel_str = rel_path.replace("\\", "/")   # map files are written with forward slashes regardless of OS
     for pattern, project in project_map:
         if rel_str == pattern or fnmatch.fnmatch(rel_str, pattern):
             return project
@@ -66,7 +117,9 @@ def resolve_project(rel_path, project_map):
 
 
 def changed_java_files():
-    """(java, other) files changed in base...head; deleted files excluded (ACMR)."""
+    """Every file changed between --base and --head in `repo`, split into (.java files, everything else).
+    --diff-filter=ACMR: only Added/Copied/Modified/Renamed files -- a file that was just deleted can't be
+    scored (there's nothing left on disk to read)."""
     out = subprocess.run(
         ["git", "diff", "--name-only", "--diff-filter=ACMR", f"{args.base}...{args.head}"],
         cwd=str(repo), capture_output=True, text=True, timeout=30,
@@ -87,7 +140,8 @@ def main():
     print(f"{len(java_files)} changed .java file(s) between {args.base} and {args.head} "
           f"({len(skipped)} non-Java file(s) skipped)")
 
-    # check each needed model once up front
+    # Which model file each project needs, checked once up front (not per file) so a missing model gives
+    # one clear message instead of repeating the same error on every file that project would have scored.
     projects_needed = sorted({resolve_project(f, project_map) for f in java_files})
     model_paths = {}
     missing = []
@@ -101,7 +155,7 @@ def main():
             print(f"[error] no saved model at {mp} for project '{project}' -- train it first "
                   f"(scripts/07_train_final_models.py), commit it, or fix the mapping in --project-map.")
         if len(missing) == len(projects_needed):
-            sys.exit(2)   # setup error: no model available at all
+            sys.exit(2)   # nothing at all can be scored -- that's a setup problem, not "risky files found"
 
     rows = []
     for rel_path in java_files:
@@ -123,7 +177,9 @@ def main():
                          "flagged": bool(r["flagged"]), "why it's risky": r.get("why it's risky", ""),
                          "suggested fix": r.get("suggested fix", "")})
         except Exception as e:
-            # parse error: report it, don't crash the run
+            # A file that fails to parse (syntax error, non-standard Java) shouldn't crash the whole CI run --
+            # report it as a row the reviewer can see, rather than silently dropping it or failing the build
+            # for an unrelated reason.
             rows.append({"File": rel_path, "Project": project, "risk": None, "flagged": None,
                          "why it's risky": f"could not score: {e}"})
 
@@ -138,9 +194,15 @@ def main():
     else:
         lines.append("| File | Project | Risk | Flagged | Why it's risky | Suggested fix |")
         lines.append("|---|---|---|---|---|---|")
-        for _, r in df.iterrows():
+        # Built straight from `rows` (the plain list of dicts), not df.iterrows(): pandas silently upcasts
+        # a row's values to one common dtype across ALL its columns when you iterate rows, so a Python
+        # `None` sitting in the "flagged" column (file not scored) would turn into float `nan` just
+        # because the neighbouring "risk" column is float64 -- and bool(nan) is True in Python, which
+        # showed up as a false "warning: yes" on rows that were never actually scored. Reading straight
+        # from the original dicts avoids that entirely.
+        for r in rows:
             risk_cell = r["risk"] if r["risk"] is not None else "-"
-            flagged_cell = "no" if r["flagged"] is None else ("warning: yes" if r["flagged"] else "no")
+            flagged_cell = "warning: yes" if r["flagged"] else "no"   # None and False both render as "no"
             why_cell = r.get("why it's risky", "") or "-"
             fix_cell = r.get("suggested fix", "") or "-"
             lines.append(f"| `{r['File']}` | {r['Project']} | {risk_cell} | {flagged_cell} | {why_cell} | {fix_cell} |")
