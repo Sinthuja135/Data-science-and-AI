@@ -30,13 +30,11 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      # Combined into one step on purpose, to keep the job log short: checks the model is present, runs the
-      # scoring, then writes the report straight into $GITHUB_STEP_SUMMARY -- a special file GitHub Actions
-      # renders as formatted Markdown on the run's own Summary page. That's where to look for the result.
+      # Per-file project comes from ci_project_map.json; --project is the fallback.
+      # ci_check.py also checks the needed model files exist.
       - name: Score changed files and write summary
         id: risk_check
         run: |
-          test -f models/camel.joblib || (echo "models/camel.joblib not found -- commit a trained model first (see scripts/ci_check.py)" && exit 1)
           python scripts/ci_check.py --project camel --repo . \
             --base ${{ github.event.pull_request.base.sha }} --head ${{ github.event.pull_request.head.sha }}
         continue-on-error: true   # let the summary/comment steps below still run even if files were flagged
