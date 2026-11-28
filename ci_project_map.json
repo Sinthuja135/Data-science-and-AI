@@ -1,0 +1,4 @@
+{
+  "examples/ExtremeRisk.java": "derby",
+  "examples/VeryRiskyProcessor.java": "camel"
+}
